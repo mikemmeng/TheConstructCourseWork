@@ -1,0 +1,4 @@
+<launch>
+    <node pkg="find_wall" type="find_wall_server.py" name="rosject_robot_find_wall_server" output="screen" />
+    <node pkg="rosject_turtlebot" type="turtlebot_follow_wall.py" name="rosject_turtlebot_node" output="screen" />     
+</launch>

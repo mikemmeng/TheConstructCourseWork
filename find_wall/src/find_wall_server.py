@@ -1,31 +1,31 @@
-#! /usr/bin/env python 
+#! /usr/bin/env python
 
 import rospy
-from find_wall.srv import FindWall, FindWallResponse
-from geometry_msgs.msg import Twist
-from sensor_msgs.msg import  LaserScan
-from math import radians
 import time
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import LaserScan
+from find_wall.srv import FindWall, FindWallRequest 
+from math import radians
 
-#### Subscriber class ####
+####subscriber class####
 class laser_subscriber:
     def __init__(self):
         self.sub = rospy.Subscriber("/scan",LaserScan, self.callback )   
         self.laser_data = LaserScan() 
-        self.rate = rospy.Rate(1)
 
     def callback(self, data):
         self.laser_data = data 
     
     #Function selects only the ranges values from laser data
     def get_laser_ranges(self):
-        self.rate.sleep() 
+        time.sleep(0.5)   
         return self.laser_data.ranges
 
 #### robot_motion class ####     
 class robot_motion:
     def __init__(self):
         # init publishers and subscribers
+        rospy.init_node("rosject_turtlebot_node", anonymous=True)
         self.pub1 = rospy.Publisher("/cmd_vel", Twist, queue_size=1)
         self.rate = rospy.Rate(1)
         self.move = Twist()
@@ -57,7 +57,7 @@ class robot_motion:
                 break
             index+=1
         #
-        print(f'get_ray(). index value:{index}')
+        rospy.loginfo(f'get_ray(). index value:{index}')
         return index if ray_found_flag else -1 # return index only if angle found. 
 
     #Function returns shortest ray in l_ranges 
@@ -106,7 +106,7 @@ class robot_motion:
         rospy.loginfo("move_robot_turn_to_wall(): --> exiting")
       
     #Function moves robot forward till front ray is given distance to wall
-    def move_robot_forward_to_distance(self, distance_to_wall=2.5):
+    def move_robot_forward_to_distance(self, distance_to_wall = 0.8):
         rospy.loginfo("move_robot_forward_to_distance(): --> started")
         l_ranges = self.sub1.get_laser_ranges()
         len_ranges = len(l_ranges)
@@ -134,90 +134,94 @@ class robot_motion:
         #self.pub1.publish(self.move)
         rospy.loginfo("move_robot_forward_to_distance(): --> exiting")
 
-    def move_robot(self):
+    def move_robot(self): 
+        rospy.loginfo("move_robot(): --> started") 
         turn_left_threshold = 0.2 # minimum laser scan reading to indicate obstacle
         turn_right_threshold = 0.3 #
         wall_threshold = 0.5 #
-        print("move_robot(): --> started")
-        l_ranges = self.sub1.get_laser_ranges() # get laser readings. only ranges values
+        
+        l_ranges = self.sub1.get_laser_ranges()
         len_ranges = len(l_ranges)
-        x_speed =0.2
-        z_speed = 0.1
+        x_speed =0.15
+        z_speed = 0.10
         front = int(len_ranges / 2 ) if len_ranges != 0 else 0
         #index= int( get_ray(90.0, l_ranges) ) 
-        ray_90degrees = len_ranges - 1 
-    
-        if l_ranges[front] > wall_threshold:
-            #Move straight
-            if l_ranges[ray_90degrees] >= turn_left_threshold and l_ranges[ray_90degrees] <= turn_right_threshold:
-                print(f'Moving robot straight. distance from wall reading : {l_ranges[ray_90degrees]}')
-                self.set_speed(x_speed, 0.0)
-            #Turn left/away from wall. linear.x at half normal speed
-            elif l_ranges[ray_90degrees] < turn_left_threshold:
-                print(f'Turning left. distance from wall reading : {l_ranges[ray_90degrees]}')
-                self.set_speed( x_speed , z_speed)
-            #Turn right/towards the wall . linear.x at half normal speed
-            elif l_ranges[front] > turn_right_threshold :
-                print(f'Turning right. distance from wall reading : {l_ranges[ray_90degrees]}')
-                self.set_speed( x_speed , -z_speed)
+        ray_90degrees = 80
+        loop_cnt, loop_cnt_max = 0, 1000
+        while True:
+            l_ranges = self.sub1.get_laser_ranges() # get laser readings. only ranges values
+            if l_ranges[front] > wall_threshold:
+                #Move straight
+                if l_ranges[ray_90degrees] >= turn_left_threshold and l_ranges[ray_90degrees] <= turn_right_threshold:
+                    rospy.loginfo(f'move_robot(): moving robot straight. distance from wall reading : {l_ranges[ray_90degrees]}')
+                    self.set_speed(x_speed, 0.0)
+                #Turn left/away from wall. linear.x at half normal speed
+                elif l_ranges[ray_90degrees] < turn_left_threshold:
+                    rospy.loginfo(f'move_robot(): turning left. distance from wall reading : {l_ranges[ray_90degrees]}')
+                    self.set_speed( x_speed , z_speed)
+                #Turn right/towards the wall . linear.x at half normal speed
+                elif l_ranges[front] > turn_right_threshold :
+                    rospy.loginfo(f'move_robot(): turning right. distance from wall reading : {l_ranges[ray_90degrees]}')
+                    self.set_speed( x_speed , -z_speed)
+                else:
+                    rospy.loginfo("move_robot(): maintaining prev action: else not straight, not turn right/left ")
+            
             else:
-                print("maintaining prev action: else not straight, not turn right/left ")   
-        else:
-            #Robot close to the wall. turn left rapidly
-            print(f'Robot close to wall. turning left rapidly. front distance : {l_ranges[front]}')
-            self.set_speed( 0.0, z_speed * 10)
-        
-        #publish move data top cmd_vel topic
-        self.pub1.publish(self.move) 
-        print("move_robot(): --> exiting")
-
-#### robot_service class #### 
-class robot_service:
-    def __init__(self):
-        rospy.init_node("rosject_robot_find_wall_server", anonymous=True)
-        self.robot_service = rospy.Service("/robot_find_wall", FindWall, self.callback)
-        self.robot = robot_motion() # instance of robot motion
-        self.service_success_flag = False
+                #Robot close to the wall. turn left rapidly
+                print(f'Robot close to wall. turning left rapidly. front distance : {l_ranges[front]}')
+                self.set_speed( x_speed / 2, z_speed * 10)
+            #Publish move data cmd_vel topic
+            self.pub1.publish(self.move)
+            
+            if loop_cnt > loop_cnt_max: 
+                #stop robot
+                self.set_speed()
+                self.pub1.publish(self.move)
+                break
+            loop_cnt+=1
+            rospy.loginfo(f'move_robot(): loop_cnt: {loop_cnt}')
+            
+        rospy.loginfo("move_robot(): --> exiting") 
     
-    def callback(self, request):
-        rospy.loginfo('callback(): --> started')
-        self.service_success_flag= FindWallResponse()
-        print(f'callback(): self.service_success_flag : {self.service_success_flag}')
 
-        #call functions
-        self.robot.move_robot_turn_to_wall()
-        self.robot.move_robot_forward_to_distance()
-        self.robot.move_robot_turn_to_wall(270)
+#inits
+robot_service_client = rospy.ServiceProxy("/robot_find_wall", FindWall ) #service client
+robot_service_client_object = FindWallRequest() # service object
+rosject_bot = robot_motion() #robot object. 
 
-        #parse response
-        self.service_success_flag=True
-        rospy.loginfo('callback(): --> exiting')
-        return self.service_success_flag
+#service client
+service_result = robot_service_client(robot_service_client_object) #Send through server connection request to FindWall service
 
 
-#####################
-# Main function
-#####################
-
+################################################
+#                                              #
+# Main function                                #
+#                                              #
+################################################
 def main():
-    print("main(): --> started")
+    rospy.loginfo("main(): ---> started")
     execute_once_flag = False
-    rosjectBotService = robot_service() #robot_service object
- 
+    
     while not rospy.is_shutdown(): 
-        #code that only need to be executed once in the while loop
-        #eg welcome prints, service inits etc
-        if( not execute_once_flag):
-            print("main(): while loop running: Waiting for service client")
+        #execute once commands
+        if not execute_once_flag:
+            if service_result:
+                rosject_bot.move_robot()
+            else:
+                rospy.loginfo("main(): service to bring robot to start postion did not complete successfully. Program  will exit.")
+                break
             execute_once_flag = True
 
-    print("main(): --> exiting")
+    rospy.loginfo("main(): ---> exiting")       
+    
+
+
+
 
 if __name__ == '__main__': 
     try: 
         main() 
     except rospy.ROSInterruptException: 
         print("Something terrible has happened...Hope the turtlebot is okay")
-        print(":-)" * 30)
-        pass
-
+        print(":-)" * 30)  
+        

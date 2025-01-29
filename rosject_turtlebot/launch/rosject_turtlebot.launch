@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="rosject_turtlebot" type="turtlebot_follow_wall.py" name="rosject_turtlebot_node" output="screen" />   
+</launch>
