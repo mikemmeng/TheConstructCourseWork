@@ -1,0 +1,8 @@
+<launch>
+    <node 
+        pkg="exercise_85"
+        type="ardrone_action_client_move_around.py" 
+        name="ardrone_action_client_move_around" 
+        output="screen" >
+    </node>
+</launch>
