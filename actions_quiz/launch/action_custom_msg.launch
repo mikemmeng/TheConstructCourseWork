@@ -1,0 +1,8 @@
+<launch>
+<node  
+        pkg="actions_quiz" 
+        type="ardrone_move_custom_action_server.py"
+        name="ardrone_move_custom_action_server"
+        output="screen" >  
+</node>
+</launch>
