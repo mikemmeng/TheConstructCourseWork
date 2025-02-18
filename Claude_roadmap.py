@@ -3,7 +3,8 @@
 ####################################
 #Claude roadmap output.
 ####################################
-"""
+claude_roadmap = """
+
 ROS/ROS2 Learning Roadmap for Job-Ready Skills (6-12 Months)
 Month 1: Foundations
 
@@ -198,3 +199,5 @@ Connect with Community: Join ROS forums and robotics groups
 Focus on Industry Needs: Look at job postings to identify in-demand skills
 
 """
+
+print(claude_roadmap)
