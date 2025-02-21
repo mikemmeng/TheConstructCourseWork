@@ -1,0 +1,8 @@
+<launch>
+<node 
+    pkg = "odom_action_test"
+    type ="odom_record.py"
+    name ="turtlebot_action_server"
+    output = "screen" >
+</node>
+</launch>

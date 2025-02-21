@@ -1,0 +1,9 @@
+#goal
+#OdomRecord.action
+---
+#result
+#geometry_msgs/Point[] list_of_odoms
+float32[] list_of_odoms 
+---
+#feedback
+float32 current_total
